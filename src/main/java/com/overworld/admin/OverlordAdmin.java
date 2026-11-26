@@ -284,11 +284,64 @@ public final class OverlordAdmin extends JavaPlugin implements Listener, TabExec
         msg(p,"Radar found "+found+" containers in "+checked+" already-loaded chunks. Unloaded chunks are not scanned.");
     }
 
-    private void findBlocks(Player p,Material material,int radius) {
+        private void findBlocks(Player p,Material material,int radius) {
         long now=System.currentTimeMillis(), last=lastScan.getOrDefault(p.getUniqueId(),0L);
         if(now-last<5000){msg(p,"Wait a few seconds before scanning again.");return;}
         lastScan.put(p.getUniqueId(),now);
         Location origin=p.getLocation(); World w=p.getWorld(); int found=0;
         int minX=origin.getBlockX()-radius,maxX=origin.getBlockX()+radius,minZ=origin.getBlockZ()-radius,maxZ=origin.getBlockZ()+radius;
         for(int cx=minX>>4;cx<=maxX>>4;cx++)for(int cz=minZ>>4;cz<=maxZ>>4;cz++){
-            if(!w.i
+            if(!w.isChunkLoaded(cx,cz))continue;
+            Chunk ch=w.getChunkAt(cx,cz);
+            for(int x=Math.max(minX,cx<<4);x<=Math.min(maxX,(cx<<4)+15);x++)
+                for(int z=Math.max(minZ,cz<<4);z<=Math.min(maxZ,(cz<<4)+15);z++)
+                    for(int y=w.getMinHeight();y<w.getMaxHeight();y++)
+                        if(ch.getBlock(x&15,y,z&15).getType()==material){
+                            Location hit=new Location(w,x+0.5,y+0.5,z+0.5);
+                            p.sendMessage(ChatColor.GOLD+"Found "+material+" at "+x+" "+y+" "+z);
+                            p.spawnParticle(Particle.END_ROD,hit,8,0.25,0.25,0.25,0.01);
+                            if(++found>=40){msg(p,"Stopped after 40 matches.");return;}
+                        }
+        }
+        msg(p,"Found "+found+" matching blocks in already-loaded chunks. Unloaded chunks were not forced open.");
+    }
+    private void scanBlocks(Player p,int radius) {
+        Location o=p.getLocation();World w=p.getWorld();int n=0;
+        scan: for(int x=o.getBlockX()-radius;x<=o.getBlockX()+radius;x++)
+            for(int y=Math.max(w.getMinHeight(),o.getBlockY()-radius);y<=Math.min(w.getMaxHeight()-1,o.getBlockY()+radius);y++)
+                for(int z=o.getBlockZ()-radius;z<=o.getBlockZ()+radius;z++){
+                    if(!w.isChunkLoaded(x>>4,z>>4))continue;
+                    Material m=w.getBlockAt(x,y,z).getType();
+                    if(m==Material.DIAMOND_ORE||m==Material.DEEPSLATE_DIAMOND_ORE||m==Material.ANCIENT_DEBRIS||m==Material.CHEST||m==Material.BARREL||m==Material.ENDER_CHEST){
+                        p.spawnParticle(Particle.END_ROD,x+0.5,y+0.5,z+0.5,3,0.15,0.15,0.15,0.0);
+                        if(++n>=500)break scan;
+                    }
+                }
+        msg(p,"Scanner marked "+n+" valuable/storage blocks. Toggle /ov xray to stop.");
+    }
+
+    @EventHandler public void onDamage(EntityDamageEvent e){if(e.getEntity() instanceof Player p&&god.contains(p.getUniqueId()))e.setCancelled(true);}
+    @EventHandler public void onFood(FoodLevelChangeEvent e){if(e.getEntity() instanceof Player p&&god.contains(p.getUniqueId()))e.setCancelled(true);}
+    @EventHandler public void onMove(PlayerMoveEvent e){
+        if(!frozen.contains(e.getPlayer().getUniqueId())||e.getTo()==null)return;
+        if(e.getFrom().getX()!=e.getTo().getX()||e.getFrom().getZ()!=e.getTo().getZ())
+            e.setTo(new Location(e.getFrom().getWorld(),e.getFrom().getX(),e.getTo().getY(),e.getFrom().getZ(),e.getTo().getYaw(),e.getTo().getPitch()));
+    }
+    @EventHandler public void onJoin(org.bukkit.event.player.PlayerJoinEvent e){
+        for(UUID id:vanished){Player v=Bukkit.getPlayer(id);if(v!=null&&!e.getPlayer().equals(v))e.getPlayer().hidePlayer(this,v);}
+    }
+    private void loadBalances(){
+        if(!getDataFolder().exists())getDataFolder().mkdirs();
+        var section=getConfig().getConfigurationSection("wallets");
+        if(section!=null)for(String key:section.getKeys(false))try{balances.put(UUID.fromString(key),section.getLong(key));}catch(IllegalArgumentException ignored){}
+    }
+    private void saveBalances(){
+        for(var entry:balances.entrySet())getConfig().set("wallets."+entry.getKey(),entry.getValue());
+        saveConfig();
+    }
+    @Override public List<String> onTabComplete(CommandSender s,Command c,String a,String[] args){
+        if(!allowed(s))return Collections.emptyList();
+        if(args.length==1)return Arrays.asList("help","rich","money","balance","kit","god","fly","vanish","tp","tphere","freeze","unfreeze","invsee","heal","kill", "launch","lightning","boom","speed","strength","jump","feed","give","repair","enchant","radar","xray","find","scanstop","reload");
+        return Collections.emptyList();
+    }
+}
