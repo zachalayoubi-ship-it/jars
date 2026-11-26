@@ -1,0 +1,11 @@
+name: OverlordAdmin
+version: 2.0.0
+main: com.overlord.admin.OverlordAdmin
+api-version: '1.21'
+softdepend: [Vault]
+description: Allowlisted OP power toolkit for Paper 1.21.11
+commands:
+  overlord:
+    description: Overlord administrative power suite
+    aliases: [ov]
+    usage: /ov help
