@@ -209,7 +209,7 @@ public final class OverlordAdmin extends JavaPlugin implements Listener, TabExec
 
     private Player asPlayer(CommandSender s){if(s instanceof Player p)return p;msg(s,"This command requires an in-game player.");return null;}
     private Player requireTarget(CommandSender s,String name){Player p=target(name);if(p==null)msg(s,"That player must be online.");return p;}
-    private <T> void toggle(Set<T> set,T value){if(!set.remove(value))set.add(value);}
+    private void toggle(Set<UUID> set,Player p){UUID id=p.getUniqueId();if(!set.remove(id))set.add(id);}
     private void giveKit(Player p) {
         p.getInventory().addItem(enchanted(new ItemStack(Material.NETHERITE_SWORD),"§dOVERLORD BLADE",Enchantment.SHARPNESS,10,Enchantment.FIRE_ASPECT,3,Enchantment.LOOTING,5));
         p.getInventory().addItem(enchanted(new ItemStack(Material.NETHERITE_CHESTPLATE),"§dOVERLORD ARMOR",Enchantment.PROTECTION,10,Enchantment.THORNS,5));
